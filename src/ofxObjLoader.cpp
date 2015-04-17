@@ -27,7 +27,7 @@
 
 OFX_OBJLOADER_BEGIN_NAMESPACE
 
-void load(string path, ofMesh& mesh, bool generateNormals, bool flipFace)
+void load(string path, ofMesh& mesh, bool generateNormals, bool flipFace, bool preserveIndices)
 {
 	path = ofToDataPath(path);
 
@@ -47,35 +47,77 @@ void load(string path, ofMesh& mesh, bool generateNormals, bool flipFace)
 	{
 		glmReverseWinding(m);
 	}
+    
+    if (preserveIndices)
+    {
+        for (unsigned i = 0; i < m->numvertices; ++i)
+        {
+            float* v = m->vertices + 3 * (i + 1);
+            mesh.addVertex(ofVec3f(v[0], v[1], v[2]));
+        }
+        if (m->colors) mesh.getColors().resize(m->numvertices);
+        if (m->normals) mesh.getNormals().resize(m->numvertices);
+        if (m->texcoords) mesh.getTexCoords().resize(m->numtexcoords);
+        
+        for (int j = 0; j < m->numtriangles; j++)
+        {
+            const GLMtriangle &tri = m->triangles[j];
+            
+            for (int k = 0; k < 3; k++)
+            {
+                mesh.addIndex(tri.vindices[k] - 1);
+                
+                if (m->colors)
+                {
+                    GLfloat *c = m->colors + (tri.vindices[k] * 3);
+                    mesh.getColors()[tri.vindices[k]] = ofFloatColor(c[0], c[1], c[2]);
+                }
+                
+                if (m->normals && ofInRange(tri.nindices[k], 0, m->numnormals))
+                {
+                    GLfloat *n = m->normals + (tri.nindices[k] * 3);
+                    mesh.getNormals()[tri.vindices[k]] = ofVec3f(n[0], n[1], n[2]);
+                }
+                
+                if (m->texcoords && ofInRange(tri.tindices[k], 0, m->numtexcoords))
+                {
+                    GLfloat *c = m->texcoords + (tri.tindices[k] * 2);
+                    mesh.getTexCoords()[tri.vindices[k]] = ofVec2f(c[0], c[1]);
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int j = 0; j < m->numtriangles; j++)
+        {
+            const GLMtriangle &tri = m->triangles[j];
 
-	for (int j = 0; j < m->numtriangles; j++)
-	{
-		const GLMtriangle &tri = m->triangles[j];
+            for (int k = 0; k < 3; k++)
+            {
+                GLfloat *v = m->vertices + (tri.vindices[k] * 3);
+                mesh.addVertex(ofVec3f(v[0], v[1], v[2]));
 
-		for (int k = 0; k < 3; k++)
-		{
-			GLfloat *v = m->vertices + (tri.vindices[k] * 3);
-			mesh.addVertex(ofVec3f(v[0], v[1], v[2]));
+                if (m->colors)
+                {
+                    GLfloat *c = m->colors + (tri.vindices[k] * 3);
+                    mesh.addColor(ofFloatColor(c[0], c[1], c[2]));
+                }
 
-			if (m->colors)
-			{
-				GLfloat *c = m->colors + (tri.vindices[k] * 3);
-				mesh.addColor(ofFloatColor(c[0], c[1], c[2]));
-			}
+                if (m->normals && ofInRange(tri.nindices[k], 0, m->numnormals))
+                {
+                    GLfloat *n = m->normals + (tri.nindices[k] * 3);
+                    mesh.addNormal(ofVec3f(n[0], n[1], n[2]));
+                }
 
-			if (m->normals && ofInRange(tri.nindices[k], 0, m->numnormals))
-			{
-				GLfloat *n = m->normals + (tri.nindices[k] * 3);
-				mesh.addNormal(ofVec3f(n[0], n[1], n[2]));
-			}
-
-			if (m->texcoords && ofInRange(tri.tindices[k], 0, m->numtexcoords))
-			{
-				GLfloat *c = m->texcoords + (tri.tindices[k] * 2);
-				mesh.addTexCoord(ofVec2f(c[0], c[1]));
-			}
-		}
-	}
+                if (m->texcoords && ofInRange(tri.tindices[k], 0, m->numtexcoords))
+                {
+                    GLfloat *c = m->texcoords + (tri.tindices[k] * 2);
+                    mesh.addTexCoord(ofVec2f(c[0], c[1]));
+                }
+            }
+        }
+    }
 
 	glmDelete(m);
 }

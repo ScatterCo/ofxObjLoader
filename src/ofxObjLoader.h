@@ -31,7 +31,7 @@
 
 OFX_OBJLOADER_BEGIN_NAMESPACE
 
-void load(string path, ofMesh& mesh, bool generateNormals = true, bool flipFace = false);
+void load(string path, ofMesh& mesh, bool generateNormals = true, bool flipFace = false, bool preserveIndices = false);
 void save(string path, const ofMesh& mesh, bool flipFace = false, bool flipNormals = false, bool export_vertexcolor_to_texture = false);
 
 void loadGroup(string path, map<string, ofMesh>& groups, bool generateNormals = true);
