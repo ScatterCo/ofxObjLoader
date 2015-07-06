@@ -1,5 +1,5 @@
 /**
- * Copyright (C) <year> <copyright holders>
+ *
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -18,6 +18,7 @@
  *
  * Addon by Satoru Higa ( http://structor.jp/ )
  * Improvements by James George ( http://jamesgeorge.org/ ) at YCAM InterLab ( http://interlab.ycam.jp/ )
+ * and Neil Mendoza 
  *
  * Example sphere from: http://liszt.stanford.edu/meshes/sphere.obj
  */
@@ -25,9 +26,7 @@
 #include "ofxObjLoader.h"
 #include "glm.h"
 
-OFX_OBJLOADER_BEGIN_NAMESPACE
-
-void load(string path, ofMesh& mesh, bool generateNormals, bool flipFace, bool preserveIndices)
+void ofxObjLoader::load(string path, ofMesh& mesh, bool generateNormals, bool flipFace, bool preserveIndices)
 {
 	path = ofToDataPath(path);
 
@@ -122,7 +121,7 @@ void load(string path, ofMesh& mesh, bool generateNormals, bool flipFace, bool p
 	glmDelete(m);
 }
 
-void loadGroup(string path, map<string, ofMesh>& groups, bool generateNormals)
+void ofxObjLoader::loadGroup(string path, map<string, ofMesh>& groups, bool generateNormals)
 {
 	path = ofToDataPath(path);
 
@@ -184,40 +183,57 @@ void loadGroup(string path, map<string, ofMesh>& groups, bool generateNormals)
 	glmDelete(m);
 }
 
-void save(string path, const ofMesh& mesh_, bool flipFace, bool flipNormals, bool export_vertexcolor_to_texture)
+void ofxObjLoader::save(string path, const ofMesh& mesh, bool flipFace, bool flipNormals, bool exportVertexColorToTexture)
 {
-	ofMesh mesh = mesh_;
+    SaveSettings settings;
+    settings.path = path;
+    settings.flipFace = flipFace;
+    settings.flipNormals = flipNormals;
+    settings.exportVertexColorToTexture = exportVertexColorToTexture;
+    ofxObjLoader::save(mesh, settings);
+}
+
+void ofxObjLoader::save(const ofMesh& cmesh, SaveSettings settings){
 	
-	path = ofToDataPath(path);
+    if (cmesh.getNumVertices() == 0){
+        ofLogError("ofxObjLoader::save -- No vertices to save!");
+        return;
+    }
+    
+	settings.path = ofToDataPath(settings.path);
 	
-	ofFilePath::createEnclosingDirectory(path);
+//	ofFilePath::createEnclosingDirectory(path);
 
 	GLuint writeMode = GLM_NONE;
 	GLMmodel* m = new GLMmodel();
 	
-	if (export_vertexcolor_to_texture)
+	if (settings.exportVertexColorToTexture || settings.texture != NULL)
 	{
-		if (mesh.getMode() != OF_PRIMITIVE_TRIANGLES)
+		if (cmesh.getMode() != OF_PRIMITIVE_TRIANGLES)
 		{
 			ofLogError("ofxObjLoader::save") << "vertex color to texture supported only triangle primitive";
 		}
 		else
 		{
-			ofImage image;
-			
-			vertexColorToFaceColor(mesh);
-			faceColorToTexture(mesh, image);
-			
-			ofFile file(path);
+            ofPixels image;
+            if(settings.exportVertexColorToTexture){
+                ofMesh mesh = cmesh;
+                ofxObjLoader::vertexColorToFaceColor(mesh);
+                ofxObjLoader::faceColorToTexture(mesh, image);
+            }
+            else {
+                image = *settings.texture;
+            }
+            
+			ofFile file(settings.path);
 			string base_path = file.getEnclosingDirectory();
 			string material_name = file.getBaseName();
 			
 			string image_name = material_name + ".png";
-			ofPixels pix = image.getPixelsRef();
 			
 			// flip save texture
-			pix.mirror(true, false);
-			ofSaveImage(pix, ofFilePath::join(base_path, image_name));
+			image.mirror(true, false);
+			ofSaveImage(image, ofFilePath::join(base_path, image_name));
 			
 			string mtl_filename = material_name + ".mtl";
 			
@@ -247,87 +263,84 @@ void save(string path, const ofMesh& mesh_, bool flipFace, bool flipNormals, boo
 		}
 	}
 
-	if (mesh.getNumVertices() > 0)
+	if (cmesh.getNumVertices() > 0)
 	{
-		m->numvertices = mesh.getNumVertices();
+		m->numvertices = cmesh.getNumVertices();
 		m->vertices = new GLfloat[(m->numvertices + 1) * 3];
-		memcpy(&m->vertices[3], &mesh.getVertices()[0].x, sizeof(ofVec3f) * mesh.getNumVertices());
-	}
-	else
-	{
-		ofLogError("ofxObjLoader::save -- No vertices to save!");
-		return;
+		memcpy(&m->vertices[3], &cmesh.getVertices()[0].x, sizeof(ofVec3f) * cmesh.getNumVertices());
 	}
 
-	if (mesh.getNumNormals() > 0)
+	if (cmesh.getNumNormals() > 0)
 	{
-		m->numnormals = mesh.getNumNormals();
+		m->numnormals = cmesh.getNumNormals();
 		m->normals = new GLfloat[(m->numnormals + 1) * 3];
-		vector<ofVec3f> normals = mesh.getNormals();
+		vector<ofVec3f> normals = cmesh.getNormals();
 		
-		if (flipNormals)
-			for (int i = 0; i < normals.size(); i++)
+        if (settings.flipNormals){
+            for (int i = 0; i < normals.size(); i++){
 				normals[i] *= -1;
+            }
+        }
 		
 		memcpy(&m->normals[3], &normals[0].x, sizeof(ofVec3f) * normals.size());
 		writeMode |= GLM_SMOOTH;
 	}
 
-	if (mesh.getNumTexCoords() > 0)
+	if (cmesh.getNumTexCoords() > 0)
 	{
-		m->numtexcoords = mesh.getNumTexCoords();
+		m->numtexcoords = cmesh.getNumTexCoords();
 		m->texcoords = new GLfloat[(m->numtexcoords + 1) * 2];
-		memcpy(&m->texcoords[2], &mesh.getTexCoords()[0].x, sizeof(ofVec2f) * mesh.getNumTexCoords());
+		memcpy(&m->texcoords[2], &cmesh.getTexCoords()[0].x, sizeof(ofVec2f) * cmesh.getNumTexCoords());
 		writeMode |= GLM_TEXTURE;
 	}
 
-	if (mesh.getNumIndices() > 0)
+	if (cmesh.getNumIndices() > 0)
 	{
-		m->numtriangles = mesh.getNumIndices() / 3;
+		m->numtriangles = cmesh.getNumIndices() / 3;
 		m->triangles = new GLMtriangle[m->numtriangles];
 
 		m->groups = new GLMgroup();
 		m->groups->next = NULL;
 		m->groups->material = NULL;
 		
-		string name = "ofMesh";
+		string name = settings.meshName;
 		m->groups->name = (char*)malloc(sizeof(char) * name.length() + 1);
 		strcpy(m->groups->name, name.c_str());
 
-		m->groups->numtriangles = mesh.getNumIndices() / 3;
+		m->groups->numtriangles = cmesh.getNumIndices() / 3;
 		m->groups->triangles = new GLuint[m->groups->numtriangles];
 		m->numgroups = 1;
 
-		for (int i = 0; i < mesh.getNumIndices(); i += 3)
+		for (int i = 0; i < cmesh.getNumIndices(); i += 3)
 		{
 			int idx = i / 3;
 			for (int j = 0; j < 3; j++)
 			{
-				m->triangles[idx].vindices[j] = mesh.getIndices()[i + j] + 1;
-				m->triangles[idx].nindices[j] = mesh.getIndices()[i + j] + 1;
-				m->triangles[idx].tindices[j] = mesh.getIndices()[i + j] + 1;
+				m->triangles[idx].vindices[j] = cmesh.getIndices()[i + j] + 1;
+				m->triangles[idx].nindices[j] = cmesh.getIndices()[i + j] + 1;
+				m->triangles[idx].tindices[j] = cmesh.getIndices()[i + j] + 1;
 			}
 			m->groups->triangles[idx] = idx;
 		}
 	}
 	else
 	{
-		m->numtriangles = mesh.getNumVertices() / 3;
+		m->numtriangles = cmesh.getNumVertices() / 3;
 		m->triangles = new GLMtriangle[m->numtriangles];
 
 		m->groups = new GLMgroup();
 		m->groups->next = NULL;
 		m->groups->material = NULL;
 		
-		string name = "ofMesh";
+		string name = settings.meshName;
 		m->groups->name = (char*)malloc(sizeof(char) * name.length() + 1);
 		strcpy(m->groups->name, name.c_str());
 
-		m->groups->numtriangles = mesh.getNumVertices() / 3;
+		m->groups->numtriangles = cmesh.getNumVertices() / 3;
 		m->groups->triangles = new GLuint[m->groups->numtriangles];
 		m->numgroups = 1;
 
-		for (int i = 0; i < mesh.getNumVertices(); i += 3)
+		for (int i = 0; i < cmesh.getNumVertices(); i += 3)
 		{
 			int idx = i / 3;
 			for (int j = 0; j < 3; j++)
@@ -340,14 +353,15 @@ void save(string path, const ofMesh& mesh_, bool flipFace, bool flipNormals, boo
 		}
 	}
 	
-	if (flipFace)
+    if (settings.flipFace){
 		glmReverseWinding(m);
+    }
 
-	glmWriteOBJ(m, (char*)path.c_str(), writeMode);
+	glmWriteOBJ(m, (char*)settings.path.c_str(), writeMode);
 	glmDelete(m);
 }
 
-void saveGroup(string path, const vector<ofMesh> & meshGroup, bool flipFace, bool flipNormals) {
+void ofxObjLoader::saveGroup(string path, const vector<ofMesh> & meshGroup, bool flipFace, bool flipNormals) {
 	path = ofToDataPath(path);
 	
 	ofFilePath::createEnclosingDirectory(path);
@@ -520,7 +534,7 @@ void saveGroup(string path, const vector<ofMesh> & meshGroup, bool flipFace, boo
 	glmDelete(m);
 }
 
-void vertexColorToFaceColor(ofMesh& mesh)
+void ofxObjLoader::vertexColorToFaceColor(ofMesh& mesh)
 {
 	vector<ofFloatColor> face_color;
 	vector<ofFloatColor> &color = mesh.getColors();
@@ -544,7 +558,7 @@ void vertexColorToFaceColor(ofMesh& mesh)
 	mesh.getColors() = face_color;
 }
 
-void faceColorToTexture(ofMesh& mesh, ofImage& image)
+void ofxObjLoader::faceColorToTexture(ofMesh& mesh, ofPixels& pixels)
 {
 	vector<ofFloatColor> &color = mesh.getColors();
 	int num_face = color.size() / 3;
@@ -553,14 +567,14 @@ void faceColorToTexture(ofMesh& mesh, ofImage& image)
 	
 	bool arb = ofGetUsingArbTex();
 	ofDisableArbTex();
-	image.allocate(tex_size, tex_size, OF_IMAGE_COLOR);
+	pixels.allocate(tex_size, tex_size, OF_IMAGE_COLOR);
 	if (arb) ofEnableArbTex();
 	
 	mesh.clearTexCoords();
 	
-	image.getPixelsRef().set(0);
+	pixels.set(0);
 	
-	float texel_size = (1. / image.getWidth()) * 0.5;
+	float texel_size = (1. / pixels.getWidth()) * 0.5;
 	
 	for (int i = 0; i < num_face; i++)
 	{
@@ -569,18 +583,15 @@ void faceColorToTexture(ofMesh& mesh, ofImage& image)
 		
 		ofColor c = color[i * 3];
 		
-		image.setColor(u, v, c);
+		pixels.setColor(u, v, c);
 		
-		float uu = (float)u / image.getWidth() + texel_size;
-		float vv = (float)v / image.getHeight() + texel_size;
+		float uu = (float)u / pixels.getWidth() + texel_size;
+		float vv = (float)v / pixels.getHeight() + texel_size;
 		
 		mesh.addTexCoord(ofVec2f(uu, vv));
 		mesh.addTexCoord(ofVec2f(uu, vv));
 		mesh.addTexCoord(ofVec2f(uu, vv));
 	}
 	
-	image.update();
 	mesh.clearColors();
 }
-
-OFX_OBJLOADER_END_NAMESPACE

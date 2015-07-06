@@ -26,21 +26,36 @@
 
 #include "ofMain.h"
 
-#define OFX_OBJLOADER_BEGIN_NAMESPACE namespace ofx { namespace ObjLoader {
-#define OFX_OBJLOADER_END_NAMESPACE } }
+class ofxObjLoader {
+  public:
 
-OFX_OBJLOADER_BEGIN_NAMESPACE
+    struct SaveSettings {
+        string path;
+        string meshName;
+        bool flipNormals;
+        bool flipFace;
+        bool exportVertexColorToTexture;
+        ofPixels* texture;
+        
+        SaveSettings(){
+            meshName = "ofMesh";
+            flipNormals = false;
+            flipFace = false;
+            exportVertexColorToTexture = false;
+            texture = NULL;
+        }
+    };
+    
+    static void load(string path, ofMesh& mesh, bool generateNormals = true, bool flipFace = false, bool preserveIndices = false);
+    static void save(string path, const ofMesh& mesh, bool flipFace = false, bool flipNormals = false, bool export_vertexcolor_to_texture = false);
+    static void save(const ofMesh& mesh, SaveSettings settings);
 
-void load(string path, ofMesh& mesh, bool generateNormals = true, bool flipFace = false, bool preserveIndices = false);
-void save(string path, const ofMesh& mesh, bool flipFace = false, bool flipNormals = false, bool export_vertexcolor_to_texture = false);
+    static void loadGroup(string path, map<string, ofMesh>& groups, bool generateNormals = true);
+    static void saveGroup(string path, const vector<ofMesh> & meshGroup, bool flipFace = false, bool flipNormals = false);
 
-void loadGroup(string path, map<string, ofMesh>& groups, bool generateNormals = true);
-void saveGroup(string path, const vector<ofMesh> & meshGroup, bool flipFace = false, bool flipNormals = false);
-
-// utils
-void vertexColorToFaceColor(ofMesh& mesh);
-void faceColorToTexture(ofMesh& mesh, ofImage& image);
-
-OFX_OBJLOADER_END_NAMESPACE
-
-namespace ofxObjLoader = ofx::ObjLoader;
+  protected:
+    // utils
+    static void vertexColorToFaceColor(ofMesh& mesh);
+    static void faceColorToTexture(ofMesh& mesh, ofPixels& image);
+    
+};
