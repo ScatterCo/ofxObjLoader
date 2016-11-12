@@ -1,4 +1,4 @@
-/*    
+/*
       glm.c
       Nate Robins, 1997
       ndr@pobox.com, http://www.pobox.com/~ndr/
@@ -390,7 +390,7 @@ glmWriteMTL(GLMmodel* model, char* modelpath, char* mtllibname)
   GLuint i;
 
   dir = glmDirName(modelpath);
-  filename = (char*)malloc(sizeof(char) * (strlen(dir)+strlen(mtllibname)));
+  filename = (char*)malloc(sizeof(char) * (strlen(dir)+strlen(mtllibname) + 1));
   strcpy(filename, dir);
   strcat(filename, mtllibname);
   free(dir);
@@ -400,7 +400,7 @@ glmWriteMTL(GLMmodel* model, char* modelpath, char* mtllibname)
   if (!file) {
     fprintf(stderr, "glmWriteMTL() failed: can't open file \"%s\".\n",
 	    filename);
-    exit(1);
+    //exit(1);
   }
   free(filename);
 
@@ -1457,7 +1457,7 @@ glmWriteOBJ(GLMmodel* model, char* filename, GLuint mode)
   if (!file) {
     fprintf(stderr, "glmWriteOBJ() failed: can't open file \"%s\" to write.\n",
 	    filename);
-    exit(1);
+//    exit(1);
   }
 
   /* spit out a header */
@@ -1472,7 +1472,8 @@ glmWriteOBJ(GLMmodel* model, char* filename, GLuint mode)
 
   if (mode & GLM_MATERIAL && model->mtllibname) {
     fprintf(file, "\nmtllib %s\n\n", model->mtllibname);
-    glmWriteMTL(model, filename, model->mtllibname);
+      //JG don't write MTL file here causing crash
+    //glmWriteMTL(model, filename, model->mtllibname);
   }
 
   /* spit out the vertices */

@@ -34,7 +34,8 @@
 	#include "glut.h"
 #endif
 #ifdef TARGET_OSX
-	#include <GLUT/glut.h>
+//	#include <GLUT/glut.h>
+    #include "../../../libs/glut/lib/osx/GLUT.framework/Versions/A/Headers/glut.h"
 #endif
 #ifdef TARGET_LINUX
 	#include <GL/glut.h>

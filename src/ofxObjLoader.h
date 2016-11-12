@@ -34,13 +34,16 @@ class ofxObjLoader {
         string meshName;
         bool flipNormals;
         bool flipFace;
+        bool flipTexture;
         bool exportVertexColorToTexture;
         ofPixels* texture;
         
         SaveSettings(){
+            path = "Mesh.obj";
             meshName = "ofMesh";
             flipNormals = false;
             flipFace = false;
+            flipTexture = true;
             exportVertexColorToTexture = false;
             texture = NULL;
         }
